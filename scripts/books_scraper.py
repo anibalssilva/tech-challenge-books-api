@@ -9,7 +9,7 @@ Melhorias de performance:
 - Reuso do HTML do catálogo (evita baixar 2x)
 - Pool de conexões maior + gzip
 - Sleep apenas entre páginas
-- availability como int; price_* como float
+- availability como int; price_* e tax como float
 
 Execução (exemplos):
     python books_scraper.py
@@ -30,6 +30,7 @@ from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import re
+import unicodedata
 import requests
 from bs4 import BeautifulSoup
 from requests.adapters import HTTPAdapter, Retry
@@ -42,7 +43,8 @@ OUTPUT_DEFAULT = Path("data/raw/books.csv")
 
 # Regex pré-compiladas
 RE_DIGITS = re.compile(r"(\d+)")
-RE_PRICE = re.compile(r"[^\d,.\-+]")
+# permite dígitos, ponto, vírgula, sinais +/-, parênteses (para formatos contábeis)
+RE_PRICE = re.compile(r"[^\d,.\-()+]")
 
 
 def _get_parser() -> str:
@@ -62,7 +64,7 @@ class BookRecord:
     product_type: str
     price_excl_tax: float   # float normalizado
     price_incl_tax: float   # float normalizado
-    tax: str
+    tax: float              # <- agora garantidamente float limpo
     availability: int       # somente o número de peças
     number_of_reviews: str
 
@@ -148,20 +150,50 @@ class BookScraper:
     @staticmethod
     def _to_float(price_str: str) -> float:
         """
-        Converte strings como '£51.77' -> 51.77.
-        Mantém dígitos, vírgula, ponto e sinais; troca vírgula por ponto.
+        Converte strings monetárias variadas em float.
+        Exemplos:
+            '£51.77'     -> 51.77
+            'R$ 1.234,56'-> 1234.56
+            '(€12,34)'   -> -12.34
+        Remove símbolos de moeda/letras, NBSP, lida com parênteses (negativo),
+        vírgula como decimal e múltiplos pontos.
         """
         if not price_str:
             return 0.0
-        cleaned = RE_PRICE.sub("", price_str).replace(",", ".")
-        if cleaned.startswith(("-", "+")) and cleaned[1:2] == ".":
-            cleaned = f"{cleaned[0]}0{cleaned[1:]}"
-        elif cleaned.startswith("."):
-            cleaned = f"0{cleaned}"
+
+        # Normaliza unicode e remove NBSP/espaços
+        s = unicodedata.normalize("NFKC", str(price_str))
+        neg = "(" in s and ")" in s  # formato contábil: (valor) = negativo
+        s = s.replace("\xa0", "").replace(" ", "")
+
+        # Remove tudo que não for dígito, ., ,, +, -, parênteses
+        cleaned = RE_PRICE.sub("", s)
+
+        # Remove parênteses (sinal já foi marcado)
+        cleaned = cleaned.replace("(", "").replace(")", "")
+
+        # Troca vírgula decimal por ponto
+        cleaned = cleaned.replace(",", ".")
+
+        # Se houver múltiplos pontos, mantém só o último como separador decimal
+        if cleaned.count(".") > 1:
+            parts = cleaned.split(".")
+            cleaned = "".join(parts[:-1]) + "." + parts[-1]
+
+        # Normaliza casos como ".99", "-.99", "+.99"
+        if cleaned.startswith("."):
+            cleaned = "0" + cleaned
+        elif cleaned.startswith("-."):
+            cleaned = "-0" + cleaned[1:]
+        elif cleaned.startswith("+."):
+            cleaned = "+0" + cleaned[1:]
+
         try:
-            return float(cleaned)
+            val = float(cleaned)
         except ValueError:
             return 0.0
+
+        return -val if neg else val
 
     def _parse_book_page(self, product_url: str) -> Optional[BookRecord]:
         soup = self._get_soup(product_url)
@@ -189,6 +221,7 @@ class BookScraper:
         # Preços normalizados
         price_excl = self._to_float(data_map.get("Price (excl. tax)", ""))
         price_incl = self._to_float(data_map.get("Price (incl. tax)", ""))
+        tax_clean = self._to_float(data_map.get("Tax", ""))
 
         return BookRecord(
             title=title,
@@ -196,7 +229,7 @@ class BookScraper:
             product_type=data_map.get("Product Type", ""),
             price_excl_tax=price_excl,
             price_incl_tax=price_incl,
-            tax=data_map.get("Tax", ""),
+            tax=tax_clean,
             availability=availability_num,
             number_of_reviews=data_map.get("Number of reviews", ""),
         )
@@ -204,6 +237,9 @@ class BookScraper:
     def run(self) -> None:
         # Garante diretório de saída
         self.out_csv.parent.mkdir(parents=True, exist_ok=True)
+
+        # --- início da medição ---
+        t0 = time.perf_counter()
 
         fieldnames = [f.name for f in BookRecord.__dataclass_fields__.values()]
         total = 0
@@ -237,7 +273,13 @@ class BookScraper:
                 # Polidez: pequeno intervalo entre PÁGINAS (não por produto)
                 time.sleep(max(0.05, self.delay * 0.25))
 
-        print(f"[OK] Concluído. {total} livros salvos em: {self.out_csv}")
+        # --- fim da medição ---
+        elapsed = time.perf_counter() - t0
+        speed = (total / elapsed) if elapsed > 0 else 0.0
+
+        # Imprime no formato pedido + taxa opcional
+        print(f"[OK] Concluído em {elapsed:.2f}s ({speed:.1f} livros/s). {total} livros salvos em: {self.out_csv}")
+
 
 
 def parse_args(argv: Optional[Iterable[str]] = None) -> argparse.Namespace:
