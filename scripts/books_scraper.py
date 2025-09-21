@@ -9,7 +9,8 @@ Melhorias de performance:
 - Reuso do HTML do catálogo (evita baixar 2x)
 - Pool de conexões maior + gzip
 - Sleep apenas entre páginas
-- availability como int; price_* e tax como float
+- availability como int; 
+- price_* e tax como float
 
 Execução (exemplos):
     python books_scraper.py
@@ -43,14 +44,14 @@ OUTPUT_DEFAULT = Path("data/raw/books.csv")
 
 # Regex pré-compiladas
 RE_DIGITS = re.compile(r"(\d+)")
-# permite dígitos, ponto, vírgula, sinais +/-, parênteses (para formatos contábeis)
+# permite dígitos, ponto, vírgula, sinais +/-, parênteses
 RE_PRICE = re.compile(r"[^\d,.\-()+]")
 
 
 def _get_parser() -> str:
     """Escolhe parser mais rápido disponível."""
     try:
-        import lxml  # noqa: F401
+        import lxml  
         return "lxml"
     except Exception:
         return "html.parser"
@@ -64,7 +65,7 @@ class BookRecord:
     product_type: str
     price_excl_tax: float   # float normalizado
     price_incl_tax: float   # float normalizado
-    tax: float              # <- agora garantidamente float limpo
+    tax: float              # float normalizado
     availability: int       # somente o número de peças
     number_of_reviews: str
 
@@ -73,9 +74,8 @@ class BookScraper:
     """
     Scraper responsável por:
     - Percorrer páginas do catálogo
-    - Extrair links de produtos
     - Visitar cada produto em paralelo para coletar campos detalhados
-    - Persistir em CSV
+    - Salvar em CSV
     """
 
     def __init__(self, out_csv: Path | str = OUTPUT_DEFAULT, delay: float = 0.1, max_workers: int = 12) -> None:
@@ -153,8 +153,6 @@ class BookScraper:
         Converte strings monetárias variadas em float.
         Exemplos:
             '£51.77'     -> 51.77
-            'R$ 1.234,56'-> 1234.56
-            '(€12,34)'   -> -12.34
         Remove símbolos de moeda/letras, NBSP, lida com parênteses (negativo),
         vírgula como decimal e múltiplos pontos.
         """
@@ -270,14 +268,14 @@ class BookScraper:
                     writer.writerow(asdict(rec))
                     total += 1
 
-                # Polidez: pequeno intervalo entre PÁGINAS (não por produto)
+                # Pequeno intervalo entre PÁGINAS
                 time.sleep(max(0.05, self.delay * 0.25))
 
         # --- fim da medição ---
         elapsed = time.perf_counter() - t0
         speed = (total / elapsed) if elapsed > 0 else 0.0
 
-        # Imprime no formato pedido + taxa opcional
+        # Imprime o tempo, taxa de livros por segundo e o total de livros
         print(f"[OK] Concluído em {elapsed:.2f}s ({speed:.1f} livros/s). {total} livros salvos em: {self.out_csv}")
 
 
