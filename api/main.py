@@ -1,5 +1,5 @@
 from fastapi  import FastAPI,HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel,HttpUrl
 from pathlib  import Path
 import pandas as     pd 
 
@@ -7,24 +7,23 @@ import pandas as     pd
 class Books(BaseModel):
     title:             str
     category:          str
+    image_url:         HttpUrl
+    description:       str
+    rating:            int
+    upc:               str
     product_type:      str
     price_excl_tax:    float
     price_incl_tax:    float
     tax:               float
     availability:      int
-    number_of_reviews: int
+    
 
 
 app = FastAPI()
 #Salvado o caminho para ser utilizado na criação do Dataframe
 pasta_dados  = Path(__file__).parent.parent
-caminho_dados= pasta_dados/'data'/'raw'/'books.csv'
+caminho_dados= pasta_dados/'data'/'processed'/'books.csv'
 df =pd.read_csv(caminho_dados)
-
-#Alguns titulos estão vindo com o Add a comment como categoria 
-mascara = df['category'] == 'Add a comment'
-linha_problematica = df[mascara]
-print(linha_problematica)
 
 
 @app.get('/api/v1/books',response_model=list[Books])
@@ -73,7 +72,8 @@ def estatica_detalhada():
 @app.get('/api/v1/books/top-rated')
 def livros_mais_avaliado():
     df_book = df[['title']].copy()
-    df_book['reviews'] = 0
+    df_book['rating'] = df['rating'].copy()
+    df_book= df_book.sort_values(by='rating',ascending=False)
     return df_book.to_dict(orient='records')
 
 @app.get('/api/v1/books/price-range',response_model=list[Books])
@@ -89,3 +89,6 @@ def pesquisar_livros_id(id:int):
     coluna   = df.iloc[id]
     df_books = coluna.to_dict()
     return df_books
+
+
+
