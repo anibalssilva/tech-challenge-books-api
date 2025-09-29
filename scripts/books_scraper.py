@@ -20,6 +20,8 @@ import requests
 from bs4 import BeautifulSoup
 from requests.adapters import HTTPAdapter, Retry
 
+#Teste de commit
+
 # -------- Config --------
 BASE_URL = "https://books.toscrape.com/"
 CATALOGUE_FIRST = urljoin(BASE_URL, "catalogue/page-1.html")
