@@ -148,16 +148,23 @@ Este projeto realiza web scraping do site [books.toscrape.com](https://books.tos
 ## 🤝 Contribuição
 
 Este é um projeto do Tech Challenge FIAP. Para contribuições ou dúvidas, entre em contato com a equipe do projeto:
----> Aníbal dos Santos Silva
-    (anibal.sant@gmail.com)
----> Bruno Henrique Martins da Fonseca
-    (bruhhmx@gmail.com)
----> Caio Breno Dantas Leite
-    (caio.bndantas@gmail.com)
----> Juliana Agra Cardoso
-    (juliana.agra@hotmail.com)
----> Thiago Fernando Lima de Morais
-    (tf_lima@terra.com.br)
+
+### 👥 **Equipe de Desenvolvimento**
+
+- **Aníbal dos Santos Silva**  
+  📧 anibal.sant@gmail.com
+
+- **Bruno Henrique Martins da Fonseca**  
+  📧 bruhhmx@gmail.com
+
+- **Caio Breno Dantas Leite**  
+  📧 caio.bndantas@gmail.com
+
+- **Juliana Agra Cardoso**  
+  📧 juliana.agra@hotmail.com
+
+- **Thiago Fernando Lima de Morais**  
+  📧 tf_lima@terra.com.br
 
 ---
 
