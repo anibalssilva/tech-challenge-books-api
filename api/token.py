@@ -18,8 +18,6 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 password_hash = PasswordHash.recommended()
 
-hashed_password_mock = "$argon2id$v=19$m=65536,t=3,p=4$U85GDgxTz7823LaZXeZo0g$9czdIvFdVpev2lOGzXgdXT9JL15xAgB2wntOE7Pe/SE"
-
 def get_session():
     with Session(engine) as session:
         yield session
@@ -29,7 +27,7 @@ SessionDep = Annotated[Session, Depends(get_session)]
 @app.post("/users/register")
 async def register_user(user: User, session: SessionDep):
 
-    if session.get(User, user.username):
+    if get_user(user.username, session):
         return {"error": "Usuário já está cadastrado"}
 
     user.password = password_hash.hash(user.password)
@@ -42,6 +40,9 @@ class Token(BaseModel):
     access_token: str
     token_type: str
 
+class TokenData(BaseModel):
+    username: str | None = None
+
 @app.post("/token")
 async def login_for_access_token(
     user_request: User, session: SessionDep
@@ -51,7 +52,7 @@ async def login_for_access_token(
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
+            detail="Usuário ou senha inválida",
             headers={"WWW-Authenticate": "Bearer"},
         )
     access_token_expires = timedelta(minutes=config.ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -74,7 +75,7 @@ def get_password_hash(password):
     return password_hash.hash(password)
 
 def authenticate_user(user: User, session: SessionDep):
-    user_db = session.get(User, user.username)
+    user_db = get_user(user.username, session)
     if not user_db:
         return False
     if not verify_password(user.password, user_db.password):
@@ -84,6 +85,36 @@ def authenticate_user(user: User, session: SessionDep):
 def verify_password(plain_password, hashed_password):
     return password_hash.verify(plain_password, hashed_password)
 
+async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)], session: SessionDep):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Credencial não é válida",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, config.SECRET_KEY, algorithms=[config.ALGORITHM])
+        username = payload.get("sub")
+        if username is None:
+            raise credentials_exception
+        token_data = TokenData(username=username)
+    except InvalidTokenError:
+        raise credentials_exception
+    user = get_user(token_data.username, session)
+    if user is None:
+        raise credentials_exception
+    return user
+
+
+async def get_current_active_user(
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    if current_user.disabled:
+        raise HTTPException(status_code=400, detail="Usuário inativo")
+    return current_user
+
+
+def get_user(username: str, session: SessionDep):
+    return session.get(User, username)
 
 sqlite_file_name = "database.db"
 sqlite_url = f"sqlite:///{sqlite_file_name}"
