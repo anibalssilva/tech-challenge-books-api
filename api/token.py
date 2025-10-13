@@ -1,65 +1,103 @@
-from typing import Annotated
 from datetime import datetime, timedelta, timezone
+from typing import Annotated
+
+import jwt
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from jwt.exceptions import InvalidTokenError
+from pwdlib import PasswordHash
+from pydantic import BaseModel
+from sqlmodel import Field, Session, SQLModel, create_engine, select
 
 import config
 from model.user import User
-from pwdlib import PasswordHash
-from sqlmodel import Field, Session, SQLModel, create_engine, select
-from pydantic import BaseModel
-
-import jwt
-from jwt.exceptions import InvalidTokenError
 
 app = FastAPI()
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl='token')
 
 password_hash = PasswordHash.recommended()
+
 
 def get_session():
     with Session(engine) as session:
         yield session
 
+
 SessionDep = Annotated[Session, Depends(get_session)]
 
-@app.post("/users/register")
+
+@app.post('/users/register')
 async def register_user(user: User, session: SessionDep):
 
     if get_user(user.username, session):
-        return {"error": "Usuário já está cadastrado"}
+        return {'error': 'Usuário já está cadastrado'}
 
     user.password = password_hash.hash(user.password)
     session.add(user)
     session.commit()
     session.refresh(user)
-    return {"message": "Usuário criado com sucesso"}
+    return {'message': 'Usuário criado com sucesso'}
+
 
 class Token(BaseModel):
     access_token: str
     token_type: str
 
+
 class TokenData(BaseModel):
     username: str | None = None
 
-@app.post("/token")
+
+@app.post('/api/v1/auth/login')
 async def login_for_access_token(
     user_request: User, session: SessionDep
 ) -> Token:
-    print(user_request)
     user = authenticate_user(user_request, session)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Usuário ou senha inválida",
-            headers={"WWW-Authenticate": "Bearer"},
+            detail='Usuário ou senha inválida',
+            headers={'WWW-Authenticate': 'Bearer'},
         )
-    access_token_expires = timedelta(minutes=config.ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": user.username}, expires_delta=access_token_expires
+    access_token_expires = timedelta(
+        minutes=config.ACCESS_TOKEN_EXPIRE_MINUTES
     )
-    return Token(access_token=access_token, token_type="bearer")
+    access_token = create_access_token(
+        data={'sub': user.username}, expires_delta=access_token_expires
+    )
+    return Token(access_token=access_token, token_type='bearer')
+
+
+@app.post('/api/v1/auth/refresh')
+async def refresh_access_token(token: Token, session: SessionDep) -> Token:
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail='Invalid refresh token',
+        headers={'WWW-Authenticate': 'Bearer'},
+    )
+
+    decoded_payload = jwt.decode(
+        token.access_token, config.SECRET_KEY, algorithms=[config.ALGORITHM]
+    )
+    username: str = decoded_payload.get('sub')
+
+    if username is None:
+        raise credentials_exception
+
+    user = get_user(username, session)
+
+    if not user:
+        raise credentials_exception
+
+    access_token_expires = timedelta(
+        minutes=config.ACCESS_TOKEN_EXPIRE_MINUTES
+    )
+    access_token = create_access_token(
+        data={'sub': user.username}, expires_delta=access_token_expires
+    )
+    return Token(access_token=access_token, token_type='bearer')
+
 
 def create_access_token(data: dict, expires_delta: timedelta | None = None):
     to_encode = data.copy()
@@ -67,12 +105,16 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
         expire = datetime.now(timezone.utc) + expires_delta
     else:
         expire = datetime.now(timezone.utc) + timedelta(minutes=15)
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, config.SECRET_KEY, algorithm=config.ALGORITHM)
+    to_encode.update({'exp': expire})
+    encoded_jwt = jwt.encode(
+        to_encode, config.SECRET_KEY, algorithm=config.ALGORITHM
+    )
     return encoded_jwt
+
 
 def get_password_hash(password):
     return password_hash.hash(password)
+
 
 def authenticate_user(user: User, session: SessionDep):
     user_db = get_user(user.username, session)
@@ -82,18 +124,24 @@ def authenticate_user(user: User, session: SessionDep):
         return False
     return user
 
+
 def verify_password(plain_password, hashed_password):
     return password_hash.verify(plain_password, hashed_password)
 
-async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)], session: SessionDep):
+
+async def get_current_user(
+    token: Annotated[str, Depends(oauth2_scheme)], session: SessionDep
+):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Credencial não é válida",
-        headers={"WWW-Authenticate": "Bearer"},
+        detail='Credencial não é válida',
+        headers={'WWW-Authenticate': 'Bearer'},
     )
     try:
-        payload = jwt.decode(token, config.SECRET_KEY, algorithms=[config.ALGORITHM])
-        username = payload.get("sub")
+        payload = jwt.decode(
+            token, config.SECRET_KEY, algorithms=[config.ALGORITHM]
+        )
+        username = payload.get('sub')
         if username is None:
             raise credentials_exception
         token_data = TokenData(username=username)
@@ -109,22 +157,33 @@ async def get_current_active_user(
     current_user: Annotated[User, Depends(get_current_user)],
 ):
     if current_user.disabled:
-        raise HTTPException(status_code=400, detail="Usuário inativo")
+        raise HTTPException(status_code=400, detail='Usuário inativo')
+    return current_user
+
+
+async def get_current_active_user_admin(
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    if current_user.disabled or not current_user.admin:
+        raise HTTPException(status_code=400, detail='Usuário inválido')
     return current_user
 
 
 def get_user(username: str, session: SessionDep):
     return session.get(User, username)
 
-sqlite_file_name = "database.db"
-sqlite_url = f"sqlite:///{sqlite_file_name}"
 
-connect_args = {"check_same_thread": False}
+sqlite_file_name = 'database.db'
+sqlite_url = f'sqlite:///{sqlite_file_name}'
+
+connect_args = {'check_same_thread': False}
 engine = create_engine(sqlite_url, connect_args=connect_args)
+
 
 def create_db_and_tables():
     SQLModel.metadata.create_all(engine)
 
-@app.on_event("startup")
+
+@app.on_event('startup')
 def on_startup():
     create_db_and_tables()
