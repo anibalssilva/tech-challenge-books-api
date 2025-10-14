@@ -9,8 +9,13 @@ from pwdlib import PasswordHash
 from pydantic import BaseModel
 from sqlmodel import Field, Session, SQLModel, create_engine, select
 
+from model.create_user import CreateUser
+from model.token import Token
+from model.refresh_token import RefreshToken
+from model.request_token import RequestToken
+
 import config
-from model.user import User
+from db.user import User
 
 app = FastAPI()
 
@@ -27,32 +32,44 @@ def get_session():
 SessionDep = Annotated[Session, Depends(get_session)]
 
 
-@app.post('/users/register')
-async def register_user(user: User, session: SessionDep):
+def register_user(user: CreateUser, session: SessionDep):
 
     if get_user(user.username, session):
         return {'error': 'Usuário já está cadastrado'}
 
-    user.password = password_hash.hash(user.password)
-    session.add(user)
+    create_user = User(username=user.username, password=user.password)
+
+    create_user.password = password_hash.hash(user.password)
+    session.add(create_user)
     session.commit()
-    session.refresh(user)
+    session.refresh(create_user)
     return {'message': 'Usuário criado com sucesso'}
 
+def update_admin(user: User, session: SessionDep):
+    user_db = get_user(user.username, session)
+    if not user_db:
+        return {'error': 'Usuário não encontrado'}
 
-class Token(BaseModel):
-    access_token: str
-    token_type: str
+    user_db.admin = True
+    session.add(user_db)
+    session.commit()
+    session.refresh(user_db)
+    return {'message': 'Usuário alterado com sucesso'}
 
+def update_disable(user: User, session: SessionDep):
+    user_db = get_user(user.username, session)
+    if not user_db:
+        return {'error': 'Usuário não encontrado'}
 
-class TokenData(BaseModel):
-    username: str | None = None
+    user_db.disabled = True
+    session.add(user_db)
+    session.commit()
+    session.refresh(user_db)
+    return {'message': 'Usuário desabilitado com sucesso'}
 
-
-@app.post('/api/v1/auth/login')
-async def login_for_access_token(
-    user_request: User, session: SessionDep
-) -> Token:
+def login_for_access_token(
+    user_request: RequestToken, session: SessionDep
+):
     user = authenticate_user(user_request, session)
     if not user:
         raise HTTPException(
@@ -69,35 +86,40 @@ async def login_for_access_token(
     return Token(access_token=access_token, token_type='bearer')
 
 
-@app.post('/api/v1/auth/refresh')
-async def refresh_access_token(token: Token, session: SessionDep) -> Token:
+def refresh_access_token(token: RefreshToken, session: SessionDep) -> Token:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail='Invalid refresh token',
         headers={'WWW-Authenticate': 'Bearer'},
     )
 
-    decoded_payload = jwt.decode(
-        token.access_token, config.SECRET_KEY, algorithms=[config.ALGORITHM]
+    try:
+        decoded_payload = jwt.decode(
+            token.access_token, config.SECRET_KEY, algorithms=[config.ALGORITHM]
+        )
+        username: str = decoded_payload.get('sub')
+
+        if username is None:
+            raise credentials_exception
+
+        user = get_user(username, session)
+
+        if not user:
+            raise credentials_exception
+
+        access_token_expires = timedelta(
+            minutes=config.ACCESS_TOKEN_EXPIRE_MINUTES
+        )
+        access_token = create_access_token(
+            data={'sub': user.username}, expires_delta=access_token_expires
+        )
+        return Token(access_token=access_token, token_type='bearer')
+    except jwt.exceptions.ExpiredSignatureError:
+        raise HTTPException(
+        status_code=status.HTTP_406_NOT_ACCEPTABLE,
+        detail='Assinatura expirada',
+        headers={'WWW-Authenticate': 'Bearer'},
     )
-    username: str = decoded_payload.get('sub')
-
-    if username is None:
-        raise credentials_exception
-
-    user = get_user(username, session)
-
-    if not user:
-        raise credentials_exception
-
-    access_token_expires = timedelta(
-        minutes=config.ACCESS_TOKEN_EXPIRE_MINUTES
-    )
-    access_token = create_access_token(
-        data={'sub': user.username}, expires_delta=access_token_expires
-    )
-    return Token(access_token=access_token, token_type='bearer')
-
 
 def create_access_token(data: dict, expires_delta: timedelta | None = None):
     to_encode = data.copy()
@@ -144,10 +166,9 @@ async def get_current_user(
         username = payload.get('sub')
         if username is None:
             raise credentials_exception
-        token_data = TokenData(username=username)
     except InvalidTokenError:
         raise credentials_exception
-    user = get_user(token_data.username, session)
+    user = get_user(username, session)
     if user is None:
         raise credentials_exception
     return user
@@ -162,10 +183,10 @@ async def get_current_active_user(
 
 
 async def get_current_active_user_admin(
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_active_user)],
 ):
-    if current_user.disabled or not current_user.admin:
-        raise HTTPException(status_code=400, detail='Usuário inválido')
+    if not current_user.admin:
+        raise HTTPException(status_code=400, detail='Usuário logado não tem permissão de administrador')
     return current_user
 
 

@@ -2,9 +2,14 @@ from fastapi  import FastAPI,HTTPException, Depends
 from pydantic import BaseModel,HttpUrl
 from pathlib  import Path
 import pandas as     pd 
-from model.user import User
+from db.user import User
 from typing import Annotated
-from api.token import get_current_active_user, get_current_active_user_admin
+from api.security import get_current_active_user, SessionDep, login_for_access_token, \
+    RequestToken, refresh_access_token, RefreshToken, register_user, update_admin, update_disable, \
+    get_current_active_user_admin
+from model.create_user import CreateUser
+from model.token import Token
+from model.update_user import UpdateUser
 
 
 class Books(BaseModel):
@@ -112,5 +117,22 @@ def pesquisar_livros_id(current_user: Annotated[User, Depends(get_current_active
     df_books = coluna.to_dict()
     return df_books
 
+@app.post('/api/v1/users/register')
+async def create_user(user: CreateUser, session: SessionDep):
+    return register_user(user, session)
 
+@app.post('/api/v1/users/admin')
+async def user_admin(current_user: Annotated[User, Depends(get_current_active_user_admin)], user: UpdateUser, session: SessionDep):
+    return update_admin(user, session)
 
+@app.post('/api/v1/users/disable')
+async def disable_user(current_user: Annotated[User, Depends(get_current_active_user_admin)], user: UpdateUser, session: SessionDep):
+    return update_disable(user, session)
+
+@app.post('/api/v1/auth/login')
+async def login(request_token: RequestToken, session: SessionDep) -> Token:
+    return login_for_access_token(request_token, session)
+
+@app.post('/api/v1/auth/refresh')
+async def refresh_token(token: RefreshToken, session: SessionDep) -> Token:
+    return refresh_access_token(token, session)
