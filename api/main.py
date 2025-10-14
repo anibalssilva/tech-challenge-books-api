@@ -4,7 +4,8 @@ from pathlib  import Path
 import pandas as     pd 
 from model.user import User
 from typing import Annotated
-from api.token import get_current_active_user
+from api.token import get_current_active_user, get_current_active_user_admin
+
 
 class Books(BaseModel):
     title:             str
@@ -36,7 +37,7 @@ def retornar_livros(current_user: Annotated[User, Depends(get_current_active_use
 
 #Busca o livro pelo nome , pode buscar livros pela categoria também e pode buscar um livro por ambos
 @app.get('/api/v1/books/search',response_model=list[Books])
-def pesquisar_livros_titulo_categoria(title: str = None ,category:str = None):
+def pesquisar_livros_titulo_categoria(current_user: Annotated[User, Depends(get_current_active_user)], title: str = None ,category:str = None):
     df_book = df.copy()
     if title:
         df_book = df_book[df_book['title'] == title]
@@ -48,7 +49,7 @@ def pesquisar_livros_titulo_categoria(title: str = None ,category:str = None):
     
 #Retorna uma lista com todas as categoria sem duplicatas 
 @app.get('/api/v1/categories')
-def retornar_categorias():
+def retornar_categorias(current_user: Annotated[User, Depends(get_current_active_user)]):
     df_books = list(set(df['category']))
     return df_books
     
@@ -69,7 +70,7 @@ def retorna_saude():
 
 
 @app.get('/api/v1/stats/overview')
-def estatistica_geral():
+def estatistica_geral(current_user: Annotated[User, Depends(get_current_active_user)]):
     dict_estatistica_geral  = {'total_de_livros': len(df['title']),'preco_medio': round(df['price_incl_tax'].mean(),2)
                               , 'maior_preco': df['price_incl_tax'].max(),'menor_preco':df['price_incl_tax'].min(),}
     dict_estatistica_ratings= {'avaliacao_media':df['rating'].mean(),'distribuicao_de_avaliacoes':df['rating'].value_counts().to_dict() }
@@ -79,7 +80,7 @@ def estatistica_geral():
 
 #Gera estatísticas detalhadas por categoria 
 @app.get('/api/v1/stats/categories') 
-def estatica_detalhada():
+def estatica_detalhada(current_user: Annotated[User, Depends(get_current_active_user)]):
     dict_estatistica_categorias = {'total_de_categorias':df['category'].nunique() ,
                                    'quantidade_por_categoria':df['category'].value_counts().round(2).to_dict(),
                                    'preco_medio_categoria':df.groupby('category')['price_incl_tax'].mean().round(2).to_dict(),
@@ -89,7 +90,7 @@ def estatica_detalhada():
         
 #Retorna exatamento o nome e avaliação de todos livros por ordem da maior avaliação        
 @app.get('/api/v1/books/top-rated')
-def livros_mais_avaliado():
+def livros_mais_avaliado(current_user: Annotated[User, Depends(get_current_active_user)]):
     df_book = df[['title']].copy()
     df_book['rating'] = df['rating'].copy()
     df_book= df_book.sort_values(by='rating',ascending=False)
@@ -97,7 +98,7 @@ def livros_mais_avaliado():
 
 #Retorna os livros através de um preço mínimo e máximo respectivamente
 @app.get('/api/v1/books/price-range',response_model=list[Books])
-def filtrar_preco(min:int,max:int):
+def filtrar_preco(current_user: Annotated[User, Depends(get_current_active_user)], min:int,max:int):
     filtro = df['price_incl_tax'].between(min,max)
     df_book=df[filtro]
     return df_book.to_dict(orient='records')
@@ -106,7 +107,7 @@ def filtrar_preco(min:int,max:int):
 #Esta é uma função dinamica e de ficar abaixo das que não são ,se não dá erro 
 #Retorna o livro pelo seu id no Dataframe ,o id do Dataframe começa com 0
 @app.get('/api/v1/books/{id}',response_model=Books)
-def pesquisar_livros_id(id:int):
+def pesquisar_livros_id(current_user: Annotated[User, Depends(get_current_active_user)], id:int):
     coluna   = df.iloc[id]
     df_books = coluna.to_dict()
     return df_books
