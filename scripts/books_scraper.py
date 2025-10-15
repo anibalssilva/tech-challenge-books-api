@@ -46,9 +46,19 @@ import requests  # Para fazer requisições HTTP
 from bs4 import BeautifulSoup  # Para parsing de HTML
 from requests.adapters import HTTPAdapter, Retry  # Para configuração de sessão HTTP
 
+# Imports para logging estruturado
+sys.path.append(str(Path(__file__).parent.parent))
+import structlog
+from logs.setup_logging import setup_logging
+
 # =============================================================================
 # CONFIGURAÇÕES E CONSTANTES
 # =============================================================================
+
+# Path do log do books_scrapper e configurando o log
+LOG_PATH = Path("./logs/scrapper.log")
+setup_logging(LOG_PATH)
+logger = structlog.get_logger("web_scraper")
 
 # URL base do site que será feito o scraping
 BASE_URL = "https://books.toscrape.com/"
@@ -637,6 +647,7 @@ class BookScraper:
         mas os resultados são salvos na ordem original do catálogo.
         """
         # Cria o diretório de saída se não existir
+        logger.info(f"Creating output directory if not exists: {self.out_csv.parent}", title=None, duration=None)
         self.out_csv.parent.mkdir(parents=True, exist_ok=True)
         
         # Inicia cronômetro para medir performance
@@ -647,11 +658,13 @@ class BookScraper:
         # =============================================================================
         
         # Coleta todas as URLs de produtos de todas as páginas
+        logger.info("Gathering all product URLs from catalogue...", title=None, duration=time.perf_counter()-t0)
         product_urls = self._gather_all_product_urls()
         total_urls = len(product_urls)
+        logger.info(f"Found {total_urls} product URLs.", title=None, duration=time.perf_counter()-t0)
         
         if self.verbose:
-            print(f"[INFO] {total_urls} produtos encontrados. Disparando com {self.max_workers} workers...")
+            logger.info(f"[INFO] {total_urls} produtos encontrados. Disparando com {self.max_workers} workers...", title=None, duration=time.perf_counter()-t0)
 
         # =============================================================================
         # FASE 2: PREPARAÇÃO PARA PROCESSAMENTO PARALELO
@@ -685,24 +698,26 @@ class BookScraper:
                     rec = fut.result()
                     if rec:
                         # Armazena na posição correta para manter a ordem
+                        logger.info('Processed book: ', title=rec.title, duration=time.perf_counter()-t0)
                         ordered_results[idx] = rec
                 except requests.RequestException as exc:
                     # Trata erros de requisição HTTP
-                    print(f"[WARN] Falha ao processar: {exc}", file=sys.stderr)
+                    logger.warn(f'Falha ao processar: {exc}', title=rec.title, duration=time.perf_counter()-t0)
                 except Exception as exc:
                     # Trata outros erros inesperados
-                    print(f"[WARN] Erro inesperado: {exc}", file=sys.stderr)
+                    logger.warn(f'Erro inesperado: {exc}', title=rec.title, duration=time.perf_counter()-t0)
                 finally:
                     completed += 1
                     # Exibe progresso a cada 20 produtos processados (se verbose)
                     if self.verbose and completed % 20 == 0:
-                        print(f"[INFO] {completed}/{total_urls} concluídos")
+                        logger.info(f'{completed}/{total_urls} concluídos', title=None, duration=time.perf_counter()-t0)
 
         # =============================================================================
         # FASE 4: SALVAMENTO EM CSV
         # =============================================================================
         
         # Salva os resultados em arquivo CSV mantendo a ordem original
+        logger.info(f'Saving results {self.out_csv} ...', title=None, duration=None)
         with open(self.out_csv, "w", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(f, fieldnames=fieldnames)
             writer.writeheader()  # Escreve cabeçalho do CSV
@@ -712,7 +727,7 @@ class BookScraper:
                 if rec:  # Ignora produtos que falharam (None)
                     writer.writerow(asdict(rec))  # Converte dataclass para dict
                     total += 1
-
+        logger.info(f'Process completed, total of lines writed: {total}', title=None, duration=time.perf_counter()-t0)
         # =============================================================================
         # FASE 5: ESTATÍSTICAS FINAIS
         # =============================================================================
@@ -720,9 +735,7 @@ class BookScraper:
         # Calcula e exibe estatísticas de performance
         elapsed = time.perf_counter() - t0
         speed = (total / elapsed) if elapsed > 0 else 0.0
-        
-        print(f"[OK] Concluído em {elapsed:.2f}s ({speed:.1f} livros/s). {total} livros salvos em: {self.out_csv}")
-
+        logger.info(f'Process completed in {elapsed:.2f}s ({speed:.1f} livros/s). {total} livros salvos em: {self.out_csv}', title=None, duration=elapsed)
 # =============================================================================
 # FUNÇÕES PRINCIPAIS E INTERFACE DE LINHA DE COMANDO
 # =============================================================================
