@@ -806,7 +806,7 @@ def main() -> None:
 if __name__ == "__main__":
     """
     Ponto de entrada quando o script é executado diretamente.
-    
+
     Este bloco garante que a função main() seja chamada apenas quando
     o script é executado diretamente, não quando importado como módulo.
     """
