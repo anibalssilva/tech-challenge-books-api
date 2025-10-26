@@ -647,7 +647,7 @@ class BookScraper:
         mas os resultados são salvos na ordem original do catálogo.
         """
         # Cria o diretório de saída se não existir
-        logger.info(f"Criando diretorio de saida caso não exista: {self.out_csv.parent}", title=None, duration=None)
+        logger.info(f"Creating output directory if not exists: {self.out_csv.parent}", title=None, duration=None)
         self.out_csv.parent.mkdir(parents=True, exist_ok=True)
         
         # Inicia cronômetro para medir performance
@@ -658,10 +658,10 @@ class BookScraper:
         # =============================================================================
         
         # Coleta todas as URLs de produtos de todas as páginas
-        logger.info("Reunindo todos as URLs de produtos do catálogo...", title=None, duration=time.perf_counter()-t0)
+        logger.info("Gathering all product URLs from catalogue...", title=None, duration=time.perf_counter()-t0)
         product_urls = self._gather_all_product_urls()
         total_urls = len(product_urls)
-        logger.info(f"Encontrado {total_urls} URLs de produtos.", title=None, duration=time.perf_counter()-t0)
+        logger.info(f"Found {total_urls} product URLs.", title=None, duration=time.perf_counter()-t0)
         
         if self.verbose:
             logger.info(f"[INFO] {total_urls} produtos encontrados. Disparando com {self.max_workers} workers...", title=None, duration=time.perf_counter()-t0)
@@ -698,7 +698,7 @@ class BookScraper:
                     rec = fut.result()
                     if rec:
                         # Armazena na posição correta para manter a ordem
-                        logger.info('Livro processado: ', title=rec.title, duration=time.perf_counter()-t0)
+                        logger.info('Processed book: ', title=rec.title, duration=time.perf_counter()-t0)
                         ordered_results[idx] = rec
                 except requests.RequestException as exc:
                     # Trata erros de requisição HTTP
@@ -717,7 +717,7 @@ class BookScraper:
         # =============================================================================
         
         # Salva os resultados em arquivo CSV mantendo a ordem original
-        logger.info(f'Salvando resultados {self.out_csv} ...', title=None, duration=None)
+        logger.info(f'Saving results {self.out_csv} ...', title=None, duration=None)
         with open(self.out_csv, "w", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(f, fieldnames=fieldnames)
             writer.writeheader()  # Escreve cabeçalho do CSV
@@ -727,7 +727,7 @@ class BookScraper:
                 if rec:  # Ignora produtos que falharam (None)
                     writer.writerow(asdict(rec))  # Converte dataclass para dict
                     total += 1
-        logger.info(f'Processamento completo, total de linhas escritas: {total}', title=None, duration=time.perf_counter()-t0)
+        logger.info(f'Process completed, total of lines writed: {total}', title=None, duration=time.perf_counter()-t0)
         # =============================================================================
         # FASE 5: ESTATÍSTICAS FINAIS
         # =============================================================================
@@ -735,7 +735,7 @@ class BookScraper:
         # Calcula e exibe estatísticas de performance
         elapsed = time.perf_counter() - t0
         speed = (total / elapsed) if elapsed > 0 else 0.0
-        logger.info(f'Processamento completado em {elapsed:.2f}s ({speed:.1f} livro/s). {total} livros salvos em: {self.out_csv}', title=None, duration=elapsed)
+        logger.info(f'Process completed in {elapsed:.2f}s ({speed:.1f} livros/s). {total} livros salvos em: {self.out_csv}', title=None, duration=elapsed)
 # =============================================================================
 # FUNÇÕES PRINCIPAIS E INTERFACE DE LINHA DE COMANDO
 # =============================================================================
