@@ -3,25 +3,42 @@ import pandas as pd
 import plotly.express as px
 import requests
 import re
+import os
 from datetime import datetime
 
 # Configuração da página
 st.set_page_config(page_title="Dashboard de Monitoramento", layout="wide")
 st.title("📊 Dashboard de Monitoramento API")
 
-LOG_FILE_API = './logs/api.log'
+LOG_FILE_API = os.getenv('LOG_FILE_PATH', './logs/api.log')
 
 # Função para carregar os logs
 def load_logs(file_path):
     try:
+        # Verifica se o arquivo existe
+        if not os.path.exists(file_path):
+            st.warning(f"⚠️ Arquivo de log não encontrado: {file_path}")
+            st.info("💡 **Modo Demo**: Mostrando dashboard vazio. Configure LOG_FILE_PATH ou execute a API para gerar logs.")
+            return pd.DataFrame()
+
+        # Verifica se o arquivo está vazio
+        if os.path.getsize(file_path) == 0:
+            st.warning("⚠️ Arquivo de log está vazio.")
+            st.info("💡 **Dica**: Execute algumas requisições na API para gerar logs e visualizar dados no dashboard.")
+            return pd.DataFrame()
+
         df = pd.read_json(file_path, lines=True)
         df['timestamp'] = pd.to_datetime(df['timestamp'])
         return df
     except FileNotFoundError:
-        st.error(f"Arquivo de log não encontrado: {file_path}")
+        st.error(f"❌ Arquivo de log não encontrado: {file_path}")
         return pd.DataFrame()
-    except ValueError:
-        st.warning("Arquivo de log está vazio ou mal formatado.")
+    except ValueError as e:
+        st.warning(f"⚠️ Arquivo de log mal formatado: {str(e)}")
+        st.info("💡 **Dica**: Verifique se o arquivo de log está em formato JSON Lines.")
+        return pd.DataFrame()
+    except Exception as e:
+        st.error(f"❌ Erro ao carregar logs: {str(e)}")
         return pd.DataFrame()
 
 # Carrega os dados
