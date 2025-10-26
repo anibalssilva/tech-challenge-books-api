@@ -1,12 +1,12 @@
 from fastapi  import FastAPI,HTTPException, Depends
 from pydantic import BaseModel,HttpUrl
 from pathlib  import Path
-import pandas as     pd 
+import pandas as     pd
 from db.user import User
 from typing import Annotated
 from api.security import get_current_active_user, SessionDep, login_for_access_token, \
     RequestToken, refresh_access_token, RefreshToken, register_user, update_admin, update_disable, \
-    get_current_active_user_admin
+    get_current_active_user_admin, create_db_and_tables
 from model.create_user import CreateUser
 from model.token import Token
 from model.update_user import UpdateUser
@@ -28,6 +28,12 @@ class Books(BaseModel):
 
 
 app = FastAPI()
+
+# Criar banco de dados e tabelas ao iniciar
+@app.on_event('startup')
+def on_startup():
+    create_db_and_tables()
+
 #Salvado o caminho para ser utilizado na criação do Dataframe
 pasta_dados  = Path(__file__).parent.parent
 caminho_dados= pasta_dados/'data'/'processed'/'books.csv'

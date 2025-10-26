@@ -17,7 +17,8 @@ from model.request_token import RequestToken
 import config
 from db.user import User
 
-app = FastAPI()
+# Não criar app aqui, usar o app do main.py
+# app = FastAPI()
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl='token')
 
@@ -204,7 +205,7 @@ engine = create_engine(sqlite_url, connect_args=connect_args)
 def create_db_and_tables():
     SQLModel.metadata.create_all(engine)
 
-
-@app.on_event('startup')
-def on_startup():
-    create_db_and_tables()
+# Não usar evento startup aqui, será chamado do main.py
+# @app.on_event('startup')
+# def on_startup():
+#     create_db_and_tables()
