@@ -91,10 +91,20 @@ else:
     st.sidebar.text("Nenhum log da API para filtrar.")
 
 # # Separa logs da API e do Scraper
-api_logs = api_logs_filtered[api_logs_filtered['logger'] == 'api']
+# Verifica se o DataFrame não está vazio e tem a coluna 'logger'
+if not api_logs_filtered.empty and 'logger' in api_logs_filtered.columns:
+    api_logs = api_logs_filtered[api_logs_filtered['logger'] == 'api']
+else:
+    api_logs = api_logs_filtered
 
 # --- Seção de Métricas da API ---
 st.header("📈 Performance da API")
+
+# Verifica se há dados para exibir
+if api_logs.empty:
+    st.info("💡 **Nenhum dado disponível.** Execute a API e gere alguns logs para visualizar métricas!")
+    st.stop()  # Para a execução aqui se não houver dados
+
 col1, col2, col3, col4, col5 = st.columns(5)
 
 if not api_logs.empty:
