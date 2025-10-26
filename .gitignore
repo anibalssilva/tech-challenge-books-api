@@ -210,3 +210,10 @@ venv311/
 __pycache__/
 *.pyc
 .DS_Store
+
+# Claude Code
+.claude/
+
+# Local Database
+database.db
+*.db
