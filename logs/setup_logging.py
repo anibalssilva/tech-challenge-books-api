@@ -1,4 +1,5 @@
 import logging
+import logging.handlers
 import structlog
 from pathlib import Path
 
@@ -11,13 +12,17 @@ def setup_logging(log_path: Path):
     if not log_path.exists():
         log_path.touch()
 
-    logging.basicConfig(
-        format="%(message)s",
-        filename=log_path,
-        level=logging.INFO,
-        filemode='a'  # Modo append
-    )
+    # Configura o handler de arquivo
+    file_handler = logging.FileHandler(log_path, mode='a', encoding='utf-8')
+    file_handler.setLevel(logging.INFO)
+    file_handler.setFormatter(logging.Formatter("%(message)s"))
 
+    # Configura o root logger
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.INFO)
+    root_logger.addHandler(file_handler)
+
+    # Configura structlog para usar o stdlib logging
     structlog.configure(
         processors=[
             structlog.stdlib.add_log_level,
