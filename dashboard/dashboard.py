@@ -78,13 +78,20 @@ if not logs_api_df.empty and 'path' in logs_api_df.columns:
 st.sidebar.subheader("Filtros da API")
 # Verifica se o DataFrame da API não está vazio
 if not logs_api_df.empty and 'level' in logs_api_df.columns:
+    date_options = logs_api_df['timestamp'].dt.date.unique().tolist()
     # Cria o widget multiselect para a API
     selected_levels_api = st.sidebar.multiselect(
          "Data da requisição:",
-         options=logs_api_df['timestamp'].dt.date.unique().tolist(),
-         default=logs_api_df['timestamp'].dt.date.unique().tolist()
+         options=date_options,
+         default=date_options
     )
-    api_logs_filtered = logs_api_df[logs_api_df['timestamp'].dt.date.isin(selected_levels_api)]
+
+    if not selected_levels_api:
+        api_logs_filtered = logs_api_df.copy()
+        st.sidebar.caption("Nenhuma data selecionada, mostrando todos os dados.")
+    
+    else:
+        api_logs_filtered = logs_api_df[logs_api_df['timestamp'].dt.date.isin(selected_levels_api)]
 
 else:
     api_logs_filtered = pd.DataFrame()
