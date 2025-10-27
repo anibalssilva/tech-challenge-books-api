@@ -20,7 +20,7 @@ from db.user import User
 # Não criar app aqui, usar o app do main.py
 # app = FastAPI()
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl='token')
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl='/api/v1/auth/login')
 
 password_hash = PasswordHash.recommended()
 
