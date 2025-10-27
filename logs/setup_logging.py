@@ -7,10 +7,15 @@ def setup_logging(log_path: Path):
     log_path = Path(log_path)
     log_path.parent.mkdir(parents=True, exist_ok=True)
 
+    # Cria o arquivo de log se não existir
+    if not log_path.exists():
+        log_path.touch()
+
     logging.basicConfig(
         format="%(message)s",
         filename=log_path,
-        level=logging.INFO
+        level=logging.INFO,
+        filemode='a'  # Modo append
     )
 
     structlog.configure(
