@@ -1,14 +1,35 @@
-from fastapi  import FastAPI,HTTPException,Request
+from fastapi  import FastAPI,HTTPException,Request, Depends
 from pydantic import BaseModel,HttpUrl
 from pathlib  import Path
-import pandas as     pd 
+import pandas as     pd
 import time
 import sys
 import uuid
+from typing import Annotated
+
 # Imports para logging estruturado
 sys.path.append(str(Path(__file__).parent.parent))
 import structlog
 from logs.setup_logging import setup_logging
+
+# Imports para autenticação JWT
+from db.user import User
+from api.security import (
+    get_current_active_user,
+    get_current_active_user_admin,
+    SessionDep,
+    login_for_access_token,
+    refresh_access_token,
+    register_user,
+    update_admin,
+    update_disable,
+    create_db_and_tables
+)
+from model.create_user import CreateUser
+from model.token import Token
+from model.refresh_token import RefreshToken
+from model.request_token import RequestToken
+from model.update_user import UpdateUser
 
 # Configuração do logging estruturado
 raiz = Path(__file__).parent.parent
@@ -33,6 +54,11 @@ class Books(BaseModel):
 
 
 app = FastAPI()
+
+
+@app.on_event('startup')
+def on_startup():
+    create_db_and_tables()
 
 
 #Salvado o caminho para ser utilizado na criação do Dataframe
@@ -160,9 +186,57 @@ def filtrar_preco(min:int,max:int):
     filtro = df['price_incl_tax'].between(min,max)
     df_book=df[filtro]
     return df_book.to_dict(orient='records')
-        
 
-#Esta é uma função dinamica e de ficar abaixo das que não são ,se não dá erro 
+
+# Endpoints de autenticação JWT
+
+@app.post('/api/v1/auth/register')
+def register(user: CreateUser, session: SessionDep):
+    """Registra um novo usuário"""
+    return register_user(user, session)
+
+
+@app.post('/api/v1/auth/login', response_model=Token)
+def login(user_request: RequestToken, session: SessionDep):
+    """Faz login e retorna um token JWT"""
+    return login_for_access_token(user_request, session)
+
+
+@app.post('/api/v1/auth/refresh', response_model=Token)
+def refresh_token(token: RefreshToken, session: SessionDep):
+    """Atualiza o token JWT"""
+    return refresh_access_token(token, session)
+
+
+@app.get('/api/v1/auth/me')
+def read_users_me(
+    current_user: Annotated[User, Depends(get_current_active_user)]
+):
+    """Retorna informações do usuário atual autenticado"""
+    return current_user
+
+
+@app.put('/api/v1/auth/update/admin')
+def update_user_admin(
+    user: UpdateUser,
+    session: SessionDep,
+    current_user: Annotated[User, Depends(get_current_active_user_admin)]
+):
+    """Torna um usuário administrador (requer permissão de admin)"""
+    return update_admin(user, session)
+
+
+@app.put('/api/v1/auth/update/disable')
+def update_user_disable(
+    user: UpdateUser,
+    session: SessionDep,
+    current_user: Annotated[User, Depends(get_current_active_user_admin)]
+):
+    """Desabilita um usuário (requer permissão de admin)"""
+    return update_disable(user, session)
+
+
+#Esta é uma função dinamica e de ficar abaixo das que não são ,se não dá erro
 #Retorna o livro pelo seu id no Dataframe ,o id do Dataframe começa com 0
 @app.get('/api/v1/books/{id}',response_model=Books)
 def pesquisar_livros_id(id:int):
