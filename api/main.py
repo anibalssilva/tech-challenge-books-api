@@ -1,14 +1,20 @@
-from fastapi  import FastAPI,HTTPException
+from fastapi  import FastAPI,HTTPException,Request
 from pydantic import BaseModel,HttpUrl
 from pathlib  import Path
 import pandas as     pd 
-import sys
 import time
-import logging
-from pathlib import Path
-project_root = Path(__file__).parent.parent
-sys.path.append(str(project_root))
+import sys
+import uuid
+# Imports para logging estruturado
+sys.path.append(str(Path(__file__).parent.parent))
+import structlog
 from logs.setup_logging import setup_logging
+
+# Configuração do logging estruturado
+raiz = Path(__file__).parent.parent
+LOG_PATH = raiz/'logs'/'api.log'
+setup_logging(LOG_PATH)
+logger = structlog.get_logger("api")
 
 
 class Books(BaseModel):
@@ -28,16 +34,58 @@ class Books(BaseModel):
 
 app = FastAPI()
 
-log = logging.getLogger('werkzeug')
-log.disabled = True
-setup_logging()
-logger = setup_logging.get_logger("api")
 
 #Salvado o caminho para ser utilizado na criação do Dataframe
 pasta_dados  = Path(__file__).parent.parent
 caminho_dados= pasta_dados/'data'/'processed'/'books.csv'
 #Dataframe que será utilizado na api
 df =pd.read_csv(caminho_dados)
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    """
+    Middleware para logar informações sobre cada requisição.
+    """
+    request_id = str(uuid.uuid4())
+    # Cria um logger específico para esta requisição, com o ID e informações do request
+    request_logger = logger.bind(
+        request_id=request_id,
+        method=request.method,
+        path=request.url.path,
+        client_host=request.client.host
+    )
+
+    request_logger.info("request_started")
+    start_time = time.time()
+
+    try:
+        # Prossegue com a execução da rota
+        response = await call_next(request)
+        process_time = time.time() - start_time
+        
+        # Loga a resposta bem-sucedida
+        request_logger.info(
+            "request_finished",
+            status_code=response.status_code,
+            process_time_ms=round(process_time * 1000, 2) # Converte para milissegundos
+        )
+        response.headers["X-Request-ID"] = request_id
+        return response
+
+    except Exception as e:
+        # Se ocorrer um erro não tratado, loga como erro crítico
+        process_time = time.time() - start_time
+        request_logger.error(
+            "request_failed_unhandled_exception",
+            status_code=500,
+            process_time_ms=round(process_time * 1000, 2),
+            exception=str(e),
+            exc_info=True # Adiciona o traceback completo ao log
+        )
+        # É importante relançar a exceção para que o FastAPI possa lidar com ela
+        # e retornar uma resposta de erro 500.
+        raise
+
 
 #Retorna todos os livros com seus dados
 @app.get('/api/v1/books',response_model=list[Books])
