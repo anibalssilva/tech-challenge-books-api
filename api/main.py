@@ -2,6 +2,13 @@ from fastapi  import FastAPI,HTTPException
 from pydantic import BaseModel,HttpUrl
 from pathlib  import Path
 import pandas as     pd 
+import sys
+import time
+import logging
+from pathlib import Path
+project_root = Path(__file__).parent.parent
+sys.path.append(str(project_root))
+from logs.setup_logging import setup_logging
 
 
 class Books(BaseModel):
@@ -20,6 +27,12 @@ class Books(BaseModel):
 
 
 app = FastAPI()
+
+log = logging.getLogger('werkzeug')
+log.disabled = True
+setup_logging()
+logger = setup_logging.get_logger("api")
+
 #Salvado o caminho para ser utilizado na criação do Dataframe
 pasta_dados  = Path(__file__).parent.parent
 caminho_dados= pasta_dados/'data'/'processed'/'books.csv'
