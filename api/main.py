@@ -1,4 +1,5 @@
 from fastapi  import FastAPI,HTTPException,Request, Depends
+from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel,HttpUrl
 from pathlib  import Path
 import pandas as     pd
@@ -197,8 +198,10 @@ def register(user: CreateUser, session: SessionDep):
 
 
 @app.post('/api/v1/auth/login', response_model=Token)
-def login(user_request: RequestToken, session: SessionDep):
-    """Faz login e retorna um token JWT"""
+def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()], session: SessionDep):
+    """Faz login e retorna um token JWT (aceita form-data para Swagger)"""
+    # Converte OAuth2PasswordRequestForm para RequestToken
+    user_request = RequestToken(username=form_data.username, password=form_data.password)
     return login_for_access_token(user_request, session)
 
 
