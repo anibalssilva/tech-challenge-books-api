@@ -13,8 +13,11 @@ def setup_logging(log_path: Path):
         if not log_path.exists():
             log_path.touch()
 
-        # Configura o handler de arquivo
-        file_handler = logging.FileHandler(log_path, mode='a', encoding='utf-8')
+        # Configura o handler de arquivo com flush automático
+        # Abre o arquivo sem buffer para garantir escrita imediata (importante para Render)
+        file_handler = logging.handlers.WatchedFileHandler(
+            log_path, mode='a', encoding='utf-8', delay=False
+        )
         file_handler.setLevel(logging.INFO)
         file_handler.setFormatter(logging.Formatter("%(message)s"))
 

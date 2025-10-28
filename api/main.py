@@ -6,6 +6,7 @@ import pandas as     pd
 import time
 import sys
 import uuid
+import logging
 from typing import Annotated
 
 # Imports para logging estruturado
@@ -96,6 +97,11 @@ async def log_requests(request: Request, call_next):
             status_code=response.status_code,
             process_time_ms=round(process_time * 1000, 2) # Converte para milissegundos
         )
+
+        # Força flush dos handlers de log para garantir escrita imediata no arquivo
+        for handler in logging.getLogger().handlers:
+            handler.flush()
+
         response.headers["X-Request-ID"] = request_id
         return response
 
