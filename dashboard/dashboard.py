@@ -5,27 +5,12 @@ import requests
 import re
 import os
 from datetime import datetime
-import psycopg2
-import os
 
 # Configuração da página
 st.set_page_config(page_title="Dashboard de Monitoramento", layout="wide")
 st.title("📊 Dashboard de Monitoramento API")
 
 LOG_FILE_API = os.getenv('LOG_FILE_PATH', './logs/api.log')
-
-
-# Conexão com o Postregress Database
-def load_logs_from_db():
-    try:
-        conn = psycopg2.connect(os.getenv('DATABASE_URL'))
-        query = "SELECT * FROM api_logs ORDER BY timestamp DESC LIMIT 10000"
-        df = pd.read_sql(query, conn)
-        conn.close()
-        return df
-    except Exception as e:
-        st.error(f"Erro ao conectar ao banco: {e}")
-        return pd.DataFrame()
 
 
 # Função para carregar os logs

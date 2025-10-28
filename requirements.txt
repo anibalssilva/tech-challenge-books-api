@@ -54,4 +54,3 @@ plotly==5.24.1
 sqlmodel==0.0.22
 pyjwt==2.10.1
 pwdlib[argon2]==0.2.1
-psycopg2-binary==2.9.10
