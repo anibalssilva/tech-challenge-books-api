@@ -11,36 +11,50 @@ st.set_page_config(page_title="Dashboard de Monitoramento", layout="wide")
 st.title("📊 Dashboard de Monitoramento API")
 
 LOG_FILE_API = os.getenv('LOG_FILE_PATH', './logs/api.log')
+API_URL = os.getenv('API_URL', 'https://tech-challenge-books-api-fxmj.onrender.com')
 
 
-# Função para carregar os logs
+# Função para carregar logs do endpoint HTTP (para Render)
+def load_logs_from_api():
+    try:
+        response = requests.get(f"{API_URL}/api/v1/logs", timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            if data.get('total', 0) > 0:
+                # Converte lista de strings JSON para DataFrame
+                logs_json = [pd.read_json(log, typ='series') for log in data['logs']]
+                df = pd.DataFrame(logs_json)
+                df['timestamp'] = pd.to_datetime(df['timestamp'])
+                return df
+            else:
+                return pd.DataFrame()
+        else:
+            return pd.DataFrame()
+    except Exception as e:
+        print(f"Error loading logs from API: {e}")
+        return pd.DataFrame()
+
+
+# Função para carregar os logs (tenta arquivo local, depois API)
 def load_logs(file_path):
     try:
-        # Verifica se o arquivo existe
-        if not os.path.exists(file_path):
-            st.warning(f"⚠️ Arquivo de log não encontrado: {file_path}")
-            st.info("💡 **Modo Demo**: Mostrando dashboard vazio. Configure LOG_FILE_PATH ou execute a API para gerar logs.")
-            return pd.DataFrame()
-
-        # Verifica se o arquivo está vazio
-        if os.path.getsize(file_path) == 0:
-            st.warning("⚠️ Arquivo de log está vazio.")
-            st.info("💡 **Dica**: Execute algumas requisições na API para gerar logs e visualizar dados no dashboard.")
-            return pd.DataFrame()
-
-        df = pd.read_json(file_path, lines=True)
-        df['timestamp'] = pd.to_datetime(df['timestamp'])
-        return df
-    except FileNotFoundError:
-        st.error(f"❌ Arquivo de log não encontrado: {file_path}")
-        return pd.DataFrame()
-    except ValueError as e:
-        st.warning(f"⚠️ Arquivo de log mal formatado: {str(e)}")
-        st.info("💡 **Dica**: Verifique se o arquivo de log está em formato JSON Lines.")
-        return pd.DataFrame()
+        # Primeiro tenta ler o arquivo local
+        if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
+            df = pd.read_json(file_path, lines=True)
+            df['timestamp'] = pd.to_datetime(df['timestamp'])
+            return df
     except Exception as e:
-        st.error(f"❌ Erro ao carregar logs: {str(e)}")
-        return pd.DataFrame()
+        print(f"Local file read failed: {e}")
+
+    # Se falhar, tenta buscar da API
+    st.info("📡 Carregando logs da API...")
+    df = load_logs_from_api()
+
+    if df.empty:
+        st.warning("⚠️ Nenhum log disponível.")
+        st.info("💡 **Dica**: Execute algumas requisições na API para gerar logs e visualizar dados no dashboard.")
+
+    return df
 
 # Carrega os dados
 logs_api_df = load_logs(LOG_FILE_API)

@@ -248,6 +248,35 @@ def update_user_disable(
     return update_disable(user, session)
 
 
+# Endpoint para retornar logs (para o dashboard)
+@app.get('/api/v1/logs')
+def get_logs(limit: int = 1000):
+    """
+    Retorna os últimos N logs da API.
+    Útil para o dashboard consumir os logs quando API e Dashboard estão em containers separados.
+    """
+    try:
+        logs = []
+        with open(LOG_PATH, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if line and line.startswith('{'):
+                    try:
+                        logs.append(line)
+                    except:
+                        continue
+
+        # Retorna os últimos N logs
+        return {
+            'total': len(logs),
+            'logs': logs[-limit:] if limit > 0 else logs
+        }
+    except FileNotFoundError:
+        return {'total': 0, 'logs': [], 'error': 'Log file not found'}
+    except Exception as e:
+        return {'total': 0, 'logs': [], 'error': str(e)}
+
+
 #Esta é uma função dinamica e de ficar abaixo das que não são ,se não dá erro
 #Retorna o livro pelo seu id no Dataframe ,o id do Dataframe começa com 0
 @app.get('/api/v1/books/{id}',response_model=Books)
