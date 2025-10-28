@@ -220,3 +220,6 @@ database.db
 
 # Streamlit
 .streamlit/secrets.toml
+
+# OpenAPI screenshots
+openapi
