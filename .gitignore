@@ -223,3 +223,7 @@ database.db
 
 # OpenAPI screenshots
 openapi
+
+# Log files directory
+logs/
+*.log
