@@ -193,7 +193,7 @@ if not api_logs.empty:
     st.plotly_chart(fig_clients, use_container_width=True)
 
     # --- Metricas de Erro ---
-    st.header("❗ Erros ao longo do tmpo")
+    st.header("❗ Erros ao longo do tempo")
     errors_over_time = api_logs[api_logs['status_code'] >= 400].groupby(api_logs['timestamp'].dt.floor('T')).size().reset_index(name='error_count')
     fig_errors_time = px.line(errors_over_time, x='timestamp', y='error_count', title='Erros ao Longo do Tempo', labels={'error_count': 'Número de Erros', 'timestamp': 'Timestamp'})
     st.plotly_chart(fig_errors_time, use_container_width=True)
