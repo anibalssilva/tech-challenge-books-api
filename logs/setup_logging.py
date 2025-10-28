@@ -46,10 +46,10 @@ def setup_logging(log_path: Path):
             cache_logger_on_first_use=True,
         )
 
-        print(f"✅ Logging initialized successfully at: {log_path.absolute()}")
+        print(f"[OK] Logging initialized successfully at: {log_path.absolute()}")
 
     except Exception as e:
-        print(f"❌ ERROR: Failed to initialize logging: {e}")
+        print(f"[ERROR] Failed to initialize logging: {e}")
         print(f"   Log path attempted: {log_path}")
         # Não lançar a exceção, permitir que a API continue rodando
         # mas configurar um handler mínimo para stdout
@@ -58,4 +58,4 @@ def setup_logging(log_path: Path):
         root_logger = logging.getLogger()
         root_logger.setLevel(logging.INFO)
         root_logger.addHandler(stdout_handler)
-        print("⚠️  Fallback: Using stdout logging only")
+        print("[WARNING] Fallback: Using stdout logging only")
