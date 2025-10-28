@@ -101,6 +101,9 @@ async def log_requests(request: Request, call_next):
         # Força flush dos handlers de log para garantir escrita imediata no arquivo
         for handler in logging.getLogger().handlers:
             handler.flush()
+            # Debug: verifica se é FileHandler e imprime info
+            if isinstance(handler, (logging.FileHandler, logging.handlers.WatchedFileHandler)):
+                print(f"[DEBUG] Flushed file handler: {handler.baseFilename}")
 
         response.headers["X-Request-ID"] = request_id
         return response

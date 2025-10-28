@@ -1,6 +1,7 @@
 import logging
 import logging.handlers
 import structlog
+import os
 from pathlib import Path
 
 def setup_logging(log_path: Path):
@@ -50,6 +51,15 @@ def setup_logging(log_path: Path):
         )
 
         print(f"[OK] Logging initialized successfully at: {log_path.absolute()}")
+        print(f"[DEBUG] File exists: {log_path.exists()}")
+        print(f"[DEBUG] File is writable: {os.access(log_path, os.W_OK)}")
+        print(f"[DEBUG] File size: {log_path.stat().st_size} bytes")
+
+        # Escreve uma linha de teste
+        with open(log_path, 'a') as f:
+            f.write('{"test": "logging_initialized"}\n')
+            f.flush()
+        print(f"[DEBUG] Test line written to file")
 
     except Exception as e:
         print(f"[ERROR] Failed to initialize logging: {e}")
