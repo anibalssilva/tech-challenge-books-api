@@ -19,7 +19,7 @@ PATHS_TO_IGNORE = [
 
 # No render: 'https://tech-challenge-books-api-fxmj.onrender.com'
 # Na maquina local: http://127.0.0.1:8000
-API_URL = os.getenv('API_URL', 'http://127.0.0.1:8000')
+API_URL = os.getenv('API_URL', 'https://tech-challenge-books-api-fxmj.onrender.com')
 DEFAULT_LOG_LIMIT = 1000
 DEFAULT_TIMEOUT = 10
 
