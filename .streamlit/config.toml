@@ -1,18 +1,27 @@
 [server]
 port = 10000
-address = "0.0.0.0"
-headless = true
-enableCORS = false
-enableXsrfProtection = true
+enableCORS = true
+enableXsrfProtection = false
+maxUploadSize = 200
+maxMessageSize = 200
 
 [browser]
+serverAddress = "localhost"
 gatherUsageStats = false
-serverAddress = "0.0.0.0"
-serverPort = 10000
 
 [theme]
-primaryColor = "#F63366"
+primaryColor = "#FF4B4B"
 backgroundColor = "#FFFFFF"
 secondaryBackgroundColor = "#F0F2F6"
 textColor = "#262730"
 font = "sans serif"
+
+[logger]
+level = "info"
+
+[client]
+showErrorDetails = true
+toolbarMode = "auto"
+
+[runner]
+fastReruns = true

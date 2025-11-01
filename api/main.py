@@ -1,5 +1,6 @@
 from fastapi  import FastAPI,HTTPException,Request, Depends
 from fastapi.security import OAuth2PasswordRequestForm
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel,HttpUrl
 from pathlib  import Path
 import pandas as     pd
@@ -8,9 +9,11 @@ import sys
 import uuid
 import logging
 from typing import Annotated
+import psycopg2
 
 # Imports para logging estruturado
 sys.path.append(str(Path(__file__).parent.parent))
+from database_config import DatabaseConnection
 import structlog
 from logs.setup_logging import setup_logging
 
@@ -57,6 +60,20 @@ class Books(BaseModel):
 
 app = FastAPI()
 
+# Define de quais origens (URLs) a API aceitará requisições
+origins = [
+    "http://127.0.0.1:10000",  # O endereço que o navegador usa
+    "http://localhost:10000", # Por garantia
+    "http://0.0.0.0:10000"    # O endereço que o terminal mostra
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,       # Permite as origens da lista
+    allow_credentials=True,
+    allow_methods=["*"],         # Permite todos os métodos (GET, POST, etc.)
+    allow_headers=["*"],         # Permite todos os cabeçalhos
+)
 
 @app.on_event('startup')
 def on_startup():
@@ -275,6 +292,39 @@ def get_logs(limit: int = 1000):
         return {'total': 0, 'logs': [], 'error': 'Log file not found'}
     except Exception as e:
         return {'total': 0, 'logs': [], 'error': str(e)}
+
+@app.get('/api/v1/db-logs')
+def get_database_logs(limit: int = 100):
+    """
+    Retorna os últimos N logs diretamente do banco de dados PostgreSQL.
+    """
+    db = None
+    try:
+        # Cria uma nova conexão *apenas* para esta leitura
+        db = DatabaseConnection()
+        db.ensure_connected()
+        
+        # Consulta os logs, ordenados do mais recente para o mais antigo
+        query = "SELECT * FROM api_logs ORDER BY timestamp DESC LIMIT %s;"
+        db.cursor.execute(query, (limit,))
+        
+        # Pega o nome das colunas
+        colnames = [desc[0] for desc in db.cursor.description]
+        
+        # Converte o resultado em uma lista de dicionários
+        logs = [dict(zip(colnames, row)) for row in db.cursor.fetchall()]
+        
+        return {"total_logs_returned": len(logs), "logs": logs}
+    
+    except Exception as e:
+        # Loga o erro (irá para o console/arquivo, mas não para o DB para evitar loop)
+        logger.error("failed_to_fetch_db_logs", error=str(e))
+        raise HTTPException(status_code=500, detail=f"Erro ao buscar logs do banco: {e}")
+    
+    finally:
+        # Garante que a conexão de leitura seja fechada
+        if db:
+            db._disconnect()
 
 
 #Esta é uma função dinamica e de ficar abaixo das que não são ,se não dá erro
