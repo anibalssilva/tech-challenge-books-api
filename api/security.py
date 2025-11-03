@@ -1,5 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from typing import Annotated
+import os
+from dotenv import load_dotenv
 
 import jwt
 from fastapi import Depends, FastAPI, HTTPException, status
@@ -194,16 +196,17 @@ async def get_current_active_user_admin(
 def get_user(username: str, session: SessionDep):
     return session.get(User, username)
 
+# Load environment variables
+load_dotenv()
 
-sqlite_file_name = 'database.db'
-sqlite_url = f'sqlite:///{sqlite_file_name}'
+# PostgreSQL Engine setup
+DATABASE_URL = f"postgresql://{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}@{os.getenv('DB_HOST')}/{os.getenv('DB_NAME')}"
 
-connect_args = {'check_same_thread': False}
-engine = create_engine(sqlite_url, connect_args=connect_args)
-
+engine = create_engine(DATABASE_URL)
 
 def create_db_and_tables():
     SQLModel.metadata.create_all(engine)
+
 
 # Não usar evento startup aqui, será chamado do main.py
 # @app.on_event('startup')
