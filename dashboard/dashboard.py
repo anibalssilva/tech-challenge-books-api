@@ -147,7 +147,7 @@ def create_performance_charts(api_requests_df: pd.DataFrame) -> None:
     st.dataframe(api_requests_df[['timestamp', 'level', 'message', 'method','path', 'status_code']].tail(100))
 
 def filter_dataframe(df: pd.DataFrame) -> pd.DataFrame:
-    if df.empty or 'path' in df.columns:
+    if df.empty or 'path' not in df.columns:
         return df
     return df[~df['path'].isin(PATHS_TO_IGNORE)]
 
@@ -164,10 +164,10 @@ def load_logs_from_api(limit: int = 1000):
     e armazena o resultado em cache por 60 segundos.
     """
     endpoint = f"{API_URL}/api/v1/db-logs?limit={limit}"
-    
+
     try:
         response = requests.get(endpoint, timeout=10)
-        
+
         if response.status_code == 200:
             logs_data = response.json()
 
@@ -175,9 +175,12 @@ def load_logs_from_api(limit: int = 1000):
             if not df.empty:
                 df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce')
                 return df
-            
+
             return pd.DataFrame()
-        
+        else:
+            st.warning(f"API retornou status {response.status_code}")
+            return pd.DataFrame()
+
     # MODIFICAÇÃO 5: Handlers de erro mais claros para o usuário
     except requests.exceptions.HTTPError as e:
         st.error(f"Erro na API: {e.response.status_code} - {e.response.text}")
