@@ -1,20 +1,10 @@
 # 📚 Books API - Tech Challenge FIAP
 
-<div align="center">
-
-![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.116.1-green.svg)
-![Streamlit](https://img.shields.io/badge/Streamlit-1.41.1-red.svg)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16+-blue.svg)
-![License](https://img.shields.io/badge/License-MIT-yellow.svg)
-
 **Sistema Completo de Pipeline de Dados para Coleta, Processamento e Disponibilização de Informações sobre Livros**
 
 *Tech Challenge FIAP - Pós Tech | Machine Learning Engineering - Fase 1*
 
-[🌐 API em Produção](https://tech-challenge-books-api-fxmj.onrender.com/docs) | [📖 Documentação](https://tech-challenge-books-api-fxmj.onrender.com/docs)
-
-</div>
+[📖 Documentação](https://tech-challenge-books-api-fxmj.onrender.com/docs)
 
 ---
 
