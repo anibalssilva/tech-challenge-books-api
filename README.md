@@ -27,6 +27,10 @@
 
 ## 🎯 Sobre o Projeto
 
+### Arquitetura
+Video de apresentação: [Link](https://drive.google.com/file/d/1GGQZSAOIXYCXTgcCEvdkYIVSIC2JOoQp/view?usp=drivesdk)
+![alt text](assets/Arquitetura.png)
+
 ### Contexto
 
 O **Books API** é um projeto desenvolvido para o **Tech Challenge da FIAP** (Pós Tech - Machine Learning Engineering), que consiste na criação de um pipeline completo de dados, desde a coleta até a disponibilização via API REST, com foco em **boas práticas de engenharia de software** e **arquitetura de dados**.
@@ -56,9 +60,12 @@ O **Books API** é um projeto desenvolvido para o **Tech Challenge da FIAP** (P�
    - Persistência de logs em PostgreSQL
 
 5. **🚀 Deploy em Produção**
+  <br>API Swagger: [Link](https://tech-challenge-books-api-fxmj.onrender.com/docs#/)
+  <br> Dashboard Streamlit: [Link](https://tech-challenge-books-dashboard.onrender.com/)
    - Aplicação containerizada e escalável
    - Deployment no Render (PaaS)
    - Monitoramento contínuo
+
 
 ### Diferenciais do Projeto
 
